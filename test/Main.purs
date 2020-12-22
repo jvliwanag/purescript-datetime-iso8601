@@ -69,12 +69,24 @@ readSpec = describe "read" do
       "2018-01-09T03:16:43.070Z" `shouldReadAs`
         mkDateTime 2018 DT.January 9 3 16 43 70
 
+    it "should adjust with positive tz offset" do
+      "2018-01-09T20:46:43.070+08:15" `shouldReadAs`
+        mkDateTime 2018 DT.January 10 5 1 43 70
+
+    it "should adjust with negative tz offset" do
+      "2018-01-10T05:01:43.070-08:15" `shouldReadAs`
+        mkDateTime 2018 DT.January 9 20 46 43 70
+
     it "should fail if missing digits" do
       fromISO8601String "2018-1-9T03:16:43.1Z" `shouldSatisfy`
         isNothing
 
     it"should fail if invalid msec" do
       fromISO8601String "2018-01-09T03:06:03.A70Z" `shouldSatisfy`
+        isNothing
+
+    it"should fail if invalid offset" do
+      fromISO8601String "2018-01-09T03:06:03.70+A0:00" `shouldSatisfy`
         isNothing
 
 printSpec :: Spec Unit
@@ -94,7 +106,6 @@ printSpec = describe "printing" do
   it "prints milliseconds with one leading zero" do
     mkDateTime 2018 DT.January 9 13 16 43 40 `shouldPrintAs`
       "2018-01-09T13:16:43.040Z"
-
 
 shouldReadAs ::
   String ->

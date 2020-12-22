@@ -7,8 +7,9 @@ import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray, (!!))
 import Data.DateTime (DateTime(..), Time(..), exactDate)
-import Data.DateTime as DT
+import Data.DateTime as DateTime
 import Data.Enum (class BoundedEnum, fromEnum, toEnum)
+import Data.Foldable (fold)
 import Data.Int (pow)
 import Data.Int as Int
 import Data.Maybe (Maybe(..))
@@ -17,6 +18,7 @@ import Data.String.Regex (Regex)
 import Data.String.Regex as Regex
 import Data.String.Regex.Flags (noFlags)
 import Data.String.Regex.Unsafe (unsafeRegex)
+import Data.Time.Duration (Hours(..), Milliseconds(..), Minutes(..), fromDuration)
 
 -- See https://www.w3.org/TR/NOTE-datetime
 
@@ -45,15 +47,15 @@ fromISO8601String :: String -> Maybe DateTime
 fromISO8601String s = do
   m <- Regex.match iso8601Regex s
 
-  year <- readMatchNdx m 1
-  month <- readMatchNdx m 2
-  day <- readMatchNdx m 3
+  year <- requireNdxEnum m 1
+  month <- requireNdxEnum m 2
+  day <- requireNdxEnum m 3
 
   date <- exactDate year month day
 
-  hour <- readMatchNdx m 4
-  min <- readMatchNdx m 5
-  sec <- readMatchNdx m 6
+  hour <- requireNdxEnum m 4
+  min <- requireNdxEnum m 5
+  sec <- requireNdxEnum m 6
 
   msecMatch <- m !! 7
   msec <- case msecMatch of
@@ -61,36 +63,55 @@ fromISO8601String s = do
     Just msecStr -> readMsecStr msecStr
 
   let time = Time hour min sec msec
+      baseDateTime = DateTime date time
+      offset = fold $ readOffset m
 
-  pure (DateTime date time)
+  DateTime.adjust offset baseDateTime
 
   where
-    readMatchNdx :: forall a. BoundedEnum a => NonEmptyArray (Maybe String) -> Int -> Maybe a
-    readMatchNdx m ndx = join (m !! ndx) >>= Int.fromString >>= toEnum
+    requireNdxEnum :: forall a. BoundedEnum a => NonEmptyArray (Maybe String) -> Int -> Maybe a
+    requireNdxEnum m ndx = requireNdxInt m ndx >>= toEnum
+
+    requireNdxInt :: NonEmptyArray (Maybe String) -> Int -> Maybe Int
+    requireNdxInt m ndx = requireNdx m ndx >>= Int.fromString
+
+    requireNdx :: NonEmptyArray (Maybe String) -> Int -> Maybe String
+    requireNdx m ndx = join (m !! ndx)
 
     readMsecStr msecStr = do
       base <- Int.fromString msecStr
       toEnum $ base * pow 10 (3 - String.length msecStr)
 
+
+    offsetSign :: String -> Milliseconds -> Milliseconds
+    offsetSign "-" (Milliseconds d) = Milliseconds (-d)
+    offsetSign _ d = d
+
+    readOffset m = ado
+      offsetFn <- offsetSign <$> requireNdx m 8
+      offsetHrs <- fromDuration <<< Hours <<< Int.toNumber <$> requireNdxInt m 9
+      offsetMins <- fromDuration <<< Minutes <<< Int.toNumber <$> requireNdxInt m 10
+      in offsetFn $ offsetHrs <> offsetMins
+
 iso8601Regex :: Regex
 iso8601Regex =
-  unsafeRegex """^(\d{4})-?(\d{2})-?(\d{2})T(\d{2}):?(\d{2}):?(\d{2})(?:\.?(\d{1,3})\d*)?Z$""" noFlags
+  unsafeRegex """^(\d{4})-?(\d{2})-?(\d{2})T(\d{2}):?(\d{2}):?(\d{2})(?:\.?(\d{1,3})\d*)?(?:Z|(\+|-)(\d{2}):?(\d{2}))$""" noFlags
 
 toISO8601String :: DateTime -> String
 toISO8601String (DateTime date time) =
-  zeroPadEnum 4 (DT.year date)
+  zeroPadEnum 4 (DateTime.year date)
   <> "-"
-  <> zeroPadEnum 2 (DT.month date)
+  <> zeroPadEnum 2 (DateTime.month date)
   <> "-"
-  <> zeroPadEnum 2 (DT.day date)
+  <> zeroPadEnum 2 (DateTime.day date)
   <> "T"
-  <> zeroPadEnum 2 (DT.hour time)
+  <> zeroPadEnum 2 (DateTime.hour time)
   <> ":"
-  <> zeroPadEnum 2 (DT.minute time)
+  <> zeroPadEnum 2 (DateTime.minute time)
   <> ":"
-  <> zeroPadEnum 2 (DT.second time)
+  <> zeroPadEnum 2 (DateTime.second time)
   <> "."
-  <> zeroPadEnum 3 (DT.millisecond time)
+  <> zeroPadEnum 3 (DateTime.millisecond time)
   <> "Z"
 
 zeroPadEnum :: forall a. BoundedEnum a => Int -> a -> String
