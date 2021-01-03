@@ -70,12 +70,12 @@ readSpec = describe "read" do
         mkDateTime 2018 DT.January 9 3 16 43 70
 
     it "should adjust with positive tz offset" do
-      "2018-01-09T20:46:43.070+08:15" `shouldReadAs`
-        mkDateTime 2018 DT.January 10 5 1 43 70
+      "2018-01-10T05:01:43.070+08:15" `shouldReadAs`
+        mkDateTime 2018 DT.January 9 20 46 43 70
 
     it "should adjust with negative tz offset" do
-      "2018-01-10T05:01:43.070-08:15" `shouldReadAs`
-        mkDateTime 2018 DT.January 9 20 46 43 70
+      "2018-01-09T20:46:43.070-08:15" `shouldReadAs`
+        mkDateTime 2018 DT.January 10 5 1 43 70
 
     it "should fail if missing digits" do
       fromISO8601String "2018-1-9T03:16:43.1Z" `shouldSatisfy`

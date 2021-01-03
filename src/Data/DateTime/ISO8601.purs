@@ -18,7 +18,7 @@ import Data.String.Regex (Regex)
 import Data.String.Regex as Regex
 import Data.String.Regex.Flags (noFlags)
 import Data.String.Regex.Unsafe (unsafeRegex)
-import Data.Time.Duration (Hours(..), Milliseconds(..), Minutes(..), fromDuration)
+import Data.Time.Duration (Hours(..), Milliseconds(..), Minutes(..), fromDuration, negateDuration)
 
 -- See https://www.w3.org/TR/NOTE-datetime
 
@@ -66,7 +66,7 @@ fromISO8601String s = do
       baseDateTime = DateTime date time
       offset = fold $ readOffset m
 
-  DateTime.adjust offset baseDateTime
+  DateTime.adjust (negateDuration offset) baseDateTime
 
   where
     requireNdxEnum :: forall a. BoundedEnum a => NonEmptyArray (Maybe String) -> Int -> Maybe a
@@ -81,7 +81,6 @@ fromISO8601String s = do
     readMsecStr msecStr = do
       base <- Int.fromString msecStr
       toEnum $ base * pow 10 (3 - String.length msecStr)
-
 
     offsetSign :: String -> Milliseconds -> Milliseconds
     offsetSign "-" (Milliseconds d) = Milliseconds (-d)
